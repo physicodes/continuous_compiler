@@ -1,0 +1,22 @@
+#+TITLE: Continuous Compiler
+
+* Background
+
+Initial problem was that I wanted to compile on save in WSL
+while using any editor in Windows so all I need to do to see
+the updated pdf is reload the pdf viewer.
+
+So it doesn't miss saves which closely follow each other, I
+have used an asyncronous method of running the compiler in a
+subprocess. If one save closely follows another then the
+previous process is cancelled and the compiler called again.
+
+* Future Development
+
+Would be better to queue, updated saves and started compiles
+because it needs to compile twice after it is cancelled
+anyway.
+
+Could also generalise it to take different stuff through
+command line arguments, potentially setting defaults through
+config files.

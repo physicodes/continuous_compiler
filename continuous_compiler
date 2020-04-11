@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+
+"""
+Script to continuously compile latex document after each consecutive save. If
+the latex document is saved during a compile, it is canelled and a new
+compilation process started.
+"""
+
+
+from argparse import ArgumentParser
+from os import stat
+from pathlib import Path
+from subprocess import Popen
+
+
+def get_parser():
+    """Returns an ArgumentParser object with program description."""
+    parser = ArgumentParser(
+        description='Continuously compile LaTeX document with latexmk after every save')
+    parser.add_argument('file', metavar='f', type=str, help='root tex document')
+    return parser
+
+
+def yes_or_no():
+    """Takes user input 'yes' or 'no' and converts it to True or False."""
+    yes = {'yes', 'y', 'ye', ''}
+    no = {'no', 'n'}
+    while True:
+        choice = input("[Y/n] ").lower()
+        if choice in yes:
+            return True
+        elif choice in no:
+            return False
+        else:
+            print("Please respond with 'yes' or 'no'")
+
+
+def compile(p):
+    """Returns constructor which runs latexmk as a subprocess."""
+    return Popen(['latexmk', '-pdf', p])
+
+
+class FileMonitor:
+
+    def __init__(self, path):
+        self.path = path
+        self.last_time_modified = self.time_modified()
+
+    def time_modified(self):
+        return stat(self.path).st_mtime
+
+    def file_changed(self):
+        new_time_modified = self.time_modified()
+        time_diff = (new_time_modified - self.last_time_modified)
+        changed = time_diff > 1e-3  # Would be 0 but sometimes two saves 0.1us apart
+        self.last_time_modified = new_time_modified
+        return changed
+
+
+def loop(p):
+    """Main compilation loop. Takes the root tex file as an argument and
+    compiles it every time it is changed on disk."""
+    fm = FileMonitor(p)
+    proc = compile(p)
+    while True:
+        if fm.file_changed():
+            proc.terminate()
+            print('File changed, recompiling...')
+            proc = compile(p)
+
+
+def main():
+    """Get compilation target path from command line arguments and pass to the
+    main loop. Handle keyboard interrupt as a graceful exit."""
+    parser = get_parser()
+    args = parser.parse_args()
+    path = Path(getattr(args, 'file'))
+    while True:
+        try:
+            loop(path)
+        except KeyboardInterrupt:
+            print("\nCompilation paused, are you sure you want to quit?")
+            quitting = yes_or_no()
+            if quitting:
+                print('Quitting...')
+                break
+
+
+if __name__ == '__main__':
+    main()
